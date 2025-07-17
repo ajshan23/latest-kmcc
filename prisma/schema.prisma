@@ -1,0 +1,472 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = "mysql://kmcc_admin:NewStrongPassword123%21@localhost:3306/kmcc"
+}
+
+model User {
+  id                Int      @id @default(autoincrement())
+  name              String
+  email             String?  @unique
+  gender            String?
+  memberId          String   @unique
+  iqamaNumber       String   @unique
+  phoneNumber       String   @unique
+  profileImage      Bytes? // Nullable field
+  password          String
+  areaName          String? // Add this new field
+  fcmToken          String?
+  isAdmin           Boolean  @default(false) // ✅ Indicates if the user is an admin
+  isSuperAdmin      Boolean  @default(false) // ✅ Only one user should have this set to true
+  isSurveyCompleted Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  profile           Profile?
+  contactInfo       ContactInfo?
+  EventRegistration EventRegistration[]
+
+  UserSurvey       UserSurvey[]
+  responses        Response[]
+  surveyProgress   UserSurveyProgress[] // ✅ Added relation
+  UserSurveyAnswer UserSurveyAnswer[]
+  Travel           Travel[]
+
+  GoldLot               GoldLot[]
+  LongTermInvestment    LongTermInvestment[]
+  Notification          Notification[]
+  UserNotificationToken UserNotificationToken[]
+}
+
+model Membership {
+  id          Int     @id @default(autoincrement())
+  memberId    String  @unique
+  iqamaNumber String  @unique
+  name        String
+  phoneNumber String?
+  status      String
+  areaName    String? // Add this new field
+
+  @@unique([memberId, iqamaNumber]) // Ensures uniqueness for verification
+  @@map("memberships") // Maps this model to the "memberships" table
+}
+
+model Profile {
+  id           Int       @id @default(autoincrement())
+  userId       Int       @unique
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  occupation   String?
+  employer     String?
+  place        String?
+  dateOfBirth  DateTime?
+  bloodGroup   String?
+  kmccPosition String? // Added KMCC Position
+  address      String? // Added Address
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ContactInfo {
+  id      Int     @id @default(autoincrement())
+  userId  Int     @unique
+  phone   String?
+  address String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("contact_infos") // Maps this model to the "contact_infos" table
+}
+
+model Banner {
+  id        Int      @id @default(autoincrement())
+  image     Bytes // Stores the image as binary (BLOB)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("banners") // Maps this model to the "banners" table
+}
+
+model Event {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String? // Optional event description
+  eventDate   DateTime
+  place       String
+  timing      String // Example: "4 AM - 10 PM"
+  highlights  Json // ✅ Store as JSON instead of a string
+  eventType   String
+  image       Bytes? // ✅ Store event image directly in the database (optional)
+  isFinished  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  registrations EventRegistration[]
+}
+
+model EventRegistration {
+  id         Int      @id @default(autoincrement())
+  eventId    Int
+  userId     Int
+  isAttended Boolean  @default(false) // Admin can mark attendance
+  createdAt  DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId]) // Prevent duplicate registrations
+}
+
+model Job {
+  id                  Int      @id @default(autoincrement())
+  companyName         String
+  logo                Bytes // Store binary data (image) instead of URL
+  position            String
+  jobMode             String
+  salary              Int
+  place               String
+  jobDescription      String   @db.Text
+  keyResponsibilities Json     @db.Json
+  requirements        Json     @db.Json
+  benefits            Json     @db.Json
+  isClosed            Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  applications JobApplication[] // One job can have multiple applications
+}
+
+model JobApplication {
+  id       Int    @id @default(autoincrement())
+  job      Job    @relation(fields: [jobId], references: [id])
+  jobId    Int
+  fullName String
+  email    String
+  phone    String
+  resume   Bytes // Store binary data (image) instead of URL
+
+  createdAt DateTime @default(now())
+}
+
+model News {
+  id          Int      @id @default(autoincrement())
+  type        String
+  heading     String
+  author      String
+  body        String   @db.Text
+  image       Bytes
+  authorImage Bytes
+  timeToRead  String // Added this field
+  createdAt   DateTime @default(now())
+}
+
+model Service {
+  id            Int      @id @default(autoincrement())
+  title         String
+  location      String
+  startingTime  String // New field
+  stoppingTime  String // New field
+  availableDays String // Changed from Json to String
+  image         Bytes?
+  phoneNumber   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("services")
+}
+
+model Survey {
+  id               Int                  @id @default(autoincrement())
+  title            String
+  description      String?
+  questions        Question[]
+  userSurveys      UserSurvey[]
+  isActive         Boolean              @default(true)
+  surveyProgress   UserSurveyProgress[] // ✅ Added relation
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  UserSurveyAnswer UserSurveyAnswer[]
+}
+
+model Question {
+  id       Int     @id @default(autoincrement())
+  surveyId Int
+  text     String
+  type     String // "multiple_choice" | "text"
+  options  Json? // ✅ Stores multiple-choice options
+  image    Bytes
+  required Boolean @default(true)
+  position Int     @default(0)
+
+  survey           Survey             @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  responses        Response[]
+  UserSurveyAnswer UserSurveyAnswer[]
+}
+
+model UserSurvey {
+  id          Int     @id @default(autoincrement())
+  userId      Int
+  surveyId    Int
+  isCompleted Boolean @default(false)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  survey Survey @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, surveyId])
+}
+
+model UserSurveyProgress {
+  id             Int     @id @default(autoincrement())
+  userId         Int
+  surveyId       Int
+  completed      Boolean @default(false)
+  lastQuestionId Int?
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  survey Survey @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+}
+
+model UserSurveyAnswer {
+  id         Int    @id @default(autoincrement())
+  userId     Int
+  surveyId   Int
+  questionId Int
+  answer     String
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  survey   Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+}
+
+model Response {
+  id         Int    @id @default(autoincrement())
+  userId     Int
+  questionId Int
+  answer     String
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model Airport {
+  id       Int    @id @default(autoincrement())
+  iataCode String @unique // Example: "DXB"
+  name     String // Example: "Dubai International Airport"
+  country  String // Example: "United Arab Emirates"
+
+  // Relations
+  departures Travel[] @relation("FromAirport")
+  arrivals   Travel[] @relation("ToAirport")
+}
+
+model Travel {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  fromAirportId Int
+  toAirportId   Int
+  travelDate    DateTime
+  travelTime    String
+  status        String // ["AVAILABLE", "ONBOARD", "NOT_AVAILABLE"]
+  createdAt     DateTime @default(now())
+
+  // Relations
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fromAirport Airport @relation(fields: [fromAirportId], references: [id], onDelete: Restrict, name: "FromAirport")
+  toAirport   Airport @relation(fields: [toAirportId], references: [id], onDelete: Restrict, name: "ToAirport")
+}
+
+model ExclusiveMember {
+  id        Int      @id @default(autoincrement())
+  name      String
+  position  String // Member's role in organization
+  image     Bytes?
+  priority  Int      @default(0) // Used for display ordering
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SubWing {
+  id              Int             @id @default(autoincrement())
+  name            String
+ description String?
+  icon            Bytes? // Optional icon field to store the icon as a buffer (SVG)
+  backgroundColor String          @default("#FFFFFF") // New field for background color
+  mainColor       String          @default("#000000") // New field for main color
+  members         SubWingMember[] // Relation to SubWingMember
+}
+
+model SubWingMember {
+  id        Int     @id @default(autoincrement())
+  name      String
+  position  String
+  image     Bytes? // Optional image field to store the member image (JPEG/PNG)
+  subWingId Int // Foreign key reference to SubWing
+  subWing   SubWing @relation(fields: [subWingId], references: [id])
+
+  @@index([subWingId]) // Index on subWingId for performance
+}
+
+model Book {
+  id          Int      @id @default(autoincrement())
+  title       String
+  author      String
+  description String?
+  pdfData     Bytes // Store the PDF file
+  coverImage  Bytes // Store the book cover image
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model GoldProgram {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String?
+  startDate   DateTime  @default(now())
+  endDate     DateTime?
+  isActive    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  lots    GoldLot[]
+  winners GoldWinner[]
+}
+
+model GoldLot {
+  id        Int      @id @default(autoincrement())
+  programId Int
+  userId    Int
+  createdAt DateTime @default(now())
+
+  // Relations
+  program  GoldProgram   @relation(fields: [programId], references: [id])
+  user     User          @relation(fields: [userId], references: [id])
+  payments GoldPayment[]
+  winners  GoldWinner[]
+}
+
+model GoldPayment {
+  id        Int       @id @default(autoincrement())
+  lotId     Int
+  year      Int
+  month     Int
+  isPaid    Boolean   @default(false)
+  paidAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  // Relations
+  lot GoldLot @relation(fields: [lotId], references: [id])
+
+  @@unique([lotId, year, month], name: "lotId_year_month")
+}
+
+model GoldWinner {
+  id          Int      @id @default(autoincrement())
+  programId   Int
+  lotId       Int
+  year        Int
+  month       Int
+  prizeAmount Float?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  program GoldProgram @relation(fields: [programId], references: [id])
+  lot     GoldLot     @relation(fields: [lotId], references: [id])
+}
+
+model ConstitutionCommittee {
+  id          Int                           @id @default(autoincrement())
+  title       String
+  description String?
+  createdAt   DateTime                      @default(now())
+  updatedAt   DateTime                      @updatedAt
+  members     ConstitutionCommitteeMember[]
+}
+
+model ConstitutionCommitteeMember {
+  id          Int                   @id @default(autoincrement())
+  name        String
+  position    String
+  image       Bytes? // Optional image field
+  committeeId Int // Foreign key reference to ConstitutionCommittee
+  committee   ConstitutionCommittee @relation(fields: [committeeId], references: [id])
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  @@index([committeeId]) // Index on committeeId for performance
+}
+
+model LongTermInvestment {
+  id                Int                 @id @default(autoincrement())
+  userId            Int
+  user              User                @relation(fields: [userId], references: [id])
+  startDate         DateTime            @default(now())
+  endDate           DateTime?
+  isActive          Boolean             @default(true)
+  totalDeposited    Float               @default(0)
+  totalProfit       Float               @default(0)
+  profitDistributed Float               @default(0)
+  profitPending     Float               @default(0)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  deposits          InvestmentDeposit[]
+  profitPayouts     ProfitPayout[]
+
+  @@unique([userId, isActive], name: "one_active_investment_per_user")
+}
+
+model InvestmentDeposit {
+  id           Int                @id @default(autoincrement())
+  investment   LongTermInvestment @relation(fields: [investmentId], references: [id])
+  investmentId Int
+  amount       Float
+  depositDate  DateTime           @default(now())
+  notes        String?
+  createdAt    DateTime           @default(now())
+}
+
+model ProfitPayout {
+  id           Int                @id @default(autoincrement())
+  investment   LongTermInvestment @relation(fields: [investmentId], references: [id])
+  investmentId Int
+  amount       Float
+  payoutDate   DateTime           @default(now())
+  notes        String?
+  createdAt    DateTime           @default(now())
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  title     String
+  body      String
+  data      Json? // Additional data payload
+  isRead    Boolean  @default(false)
+  userId    Int? // If notification is specific to a user
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserNotificationToken {
+  id     Int    @id @default(autoincrement())
+  userId Int
+  token  String @unique // Firebase device token
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId]) // Index for faster queries by user
+}
+

@@ -1,0 +1,25 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.admin = void 0;
+const firebase_admin_1 = __importDefault(require("firebase-admin"));
+exports.admin = firebase_admin_1.default;
+// import serviceAccount from "./kmcc-riyadh-app-firebase-adminsdk-fbsvc-1f13d464b0.json";
+const serviceAccount = {
+    type: "service_account",
+    project_id: "kmcc-riyadh-app",
+    private_key_id: "1f13d464b03c150d0ed9fbe59c572037462c72f3",
+    private_key: "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC3SsXxoVVVlM6F\n0YY64azgrWSqPHo9IP1WvSEHVj+t2Q+x57yl7IZq7kSrS75zzupMRgNZrN0cRwLG\ngg5dTH/9Ak/M0qgajVPDkpEutbT3zrSp8tz7OZWmveqj7K7BhsbiWaeHhFpbpQES\nHVRy80Ixc4QsCSNA2/kPCrXhGDw46PWdoeOtg7iPERPFbHeDmc2iVKSUjBiNlTOm\n2VacodVMuBP009oxIgmcNReX+C+9pVgMVwnc1Q8wQHX8n5+zT6BgxM3ks7XiFrbf\n/1h1kZm/Ag25VAm6ZjVtYNnc0n6ShxFN1L5GuJutloKsr2u4Xcz/+UfJ+oKMhM5R\nJsb6GAf/AgMBAAECggEAVk7zXpBlqmLjzMeYuWlDCpkbab4IoXhDUvDD+Lx4R9iK\nN2+zuT3jHb8Mvsxv5gBs+3WMZlGr3IDjoa3kLbK0IeNQyFX5qmcaJmGB08jkajv/\nfndJ71JyUY3kS0RMFfzs8fDdnkaIddcA5hLBjU9WwApxFntHCmeKo7abZl8PHIxp\nAr3rXBnI0bSMFiZ2Bv/xbR4Ec/VVrgOwIeXvJmTcJlHyy7BXItwALz+ojTOka8XP\n8Vkx4xBxQeIymlaNETaL3N13XaMoxBDdcnX0Zl8wABwPtRL9sKJRaepeubOrdA6X\ni2ZIf8mrTZyWdZVc1e9A2Ytax44wObapUWqGhqciYQKBgQDuyYACMyOu954pfNek\nJOiueOnEEL28q6HOqw5fpQIbq4q8V3z3Y6EQ4rhi4g3D1xtMpwa7AxXdKi3uiuoc\nFpCiRZC0JlX+cX2HpcZYRat71yLPqeqq6xnDrfW4dMV7/D7lGRXs9N/1oSKqXkOQ\ncYbL61423AZSe/X30Q/UfELq0wKBgQDEgS+ZybQ+/GCmb9kL7usN3XffEld0LWVB\n9plqRbwKokm0JVwr8Vj+vJuIozuJzW9eUydVnhlqNwVAkA+kQ/Q1MYYoc2MBeb48\ngYC3e329SQdcchKkfsx6JA/GWqiXaTyg7JehYzc5pg2tN8rnOmVVF0qyRR2AVUER\nKmorH6XapQKBgHGxd0WU29SfCatvSa1Z9X+9CnDUF8MRZUVlpL5dbpeGIdRzQ4j2\n4uWLTYenYi5w6QqiLE42td5MCvqdIcKl68+Xl8JuzlsL5l0DzWCSK4gXcve1S4p9\nzhKhbXGaB7106O1j+FCOd2QYiMzdfQX1R90n///W2xvC8eZAoGznjWUJAoGBAMQ/\n8PY6R9WP4EbY9X/BgOc8A/e5LbZNkA8s5VMJih9krQ9JMKCCTUs7umnf/BpIHa2q\nhmIvn1pA0PIF7lkztLVbXI0RkBNtLtzmyVJ19sIQKVXeZ1f5euWRFmAXMsDkzTQ6\nlcUMfZ8JhCc2zWHZJFKzDFq2RBxjCLTIE3g2B0IxAoGBAOzJ2tn1c03qwb3I/aiZ\n69Cs1DG5xlvd7yLA56deEQPaSbNxWOVeuTxGGx4lwFtdahMGMP19DoLbrtGZyJVP\n9EeGINEUPHTbG3QDVkjuziKT0DviGTiwvsHVIjBH4aS9M52Pjnt6BguLC3cXNILY\n6ABhH8wVkPegQTe5OAXG2G+n\n-----END PRIVATE KEY-----\n",
+    client_email: "firebase-adminsdk-fbsvc@kmcc-riyadh-app.iam.gserviceaccount.com",
+    client_id: "100116665153847497927",
+    auth_uri: "https://accounts.google.com/o/oauth2/auth",
+    token_uri: "https://oauth2.googleapis.com/token",
+    auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+    client_x509_cert_url: "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40kmcc-riyadh-app.iam.gserviceaccount.com",
+    universe_domain: "googleapis.com",
+};
+firebase_admin_1.default.initializeApp({
+    credential: firebase_admin_1.default.credential.cert(serviceAccount),
+});
