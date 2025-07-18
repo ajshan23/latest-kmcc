@@ -11,7 +11,7 @@ import {
   getNorkaDetails,
   getSecuritySchemeDetails,
   getPravasiWelfareMembership,
-  exportDataToExcel, // Add this import
+  exportAllUsers, // Add this import
 } from "../controllers/userController";
 import { authenticateUser } from "../middlewares/authMiddleware";
 import express from "express";
@@ -46,7 +46,7 @@ router.get(
   authenticateUser,
   getPravasiWelfareMembership
 );
-router.get("/export", authenticateUser, exportDataToExcel);
+router.get("/export", authenticateUser, exportAllUsers);
 
 export default router;
 
