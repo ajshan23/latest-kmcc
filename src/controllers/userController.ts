@@ -1064,3 +1064,45 @@ export const getSecuritySchemeDetails = asyncHandler(
   }
 );
 
+export const getPravasiWelfareMembership = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json(new ApiResponse(401, {}, "Unauthorized"));
+    }
+
+    try {
+      // Find answer to the Pravasi Welfare membership question
+      const pravasiWelfareAnswer = await prismaClient.userSurveyAnswer.findFirst(
+        {
+          where: {
+            userId,
+            question: {
+              text: {
+                equals: "Are you a member of Pravasi Welfare?",
+              },
+            },
+          },
+        }
+      );
+
+      return res.status(200).json(
+        new ApiResponse(
+          200,
+          {
+            isPravasiWelfareMember: pravasiWelfareAnswer?.answer,
+          },
+          "Pravasi Welfare membership status retrieved successfully"
+        )
+      );
+    } catch (error) {
+      console.error("Error fetching Pravasi Welfare membership:", error);
+      return res
+        .status(500)
+        .json(
+          new ApiResponse(500, {}, "Failed to fetch Pravasi Welfare membership status")
+        );
+    }
+  }
+);

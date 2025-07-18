@@ -39,5 +39,10 @@ router.get(
   authenticateUser,
   getSecuritySchemeDetails
 );
+router.get(
+  "/pravasi-welfare-membership",
+  authenticateUser,
+  getPravasiWelfareMembership
+);
 export default router;
 
