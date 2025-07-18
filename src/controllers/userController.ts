@@ -1106,3 +1106,247 @@ export const getPravasiWelfareMembership = asyncHandler(
     }
   }
 );
+
+
+import ExcelJS from 'exceljs';
+
+export const exportDataToExcel = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user?.userId;
+    const { exportType } = req.query;
+
+    if (!userId) {
+      return res.status(401).json(new ApiResponse(401, {}, "Unauthorized"));
+    }
+
+    try {
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'KMCC App';
+      workbook.created = new Date();
+
+      switch (exportType) {
+        case 'profile':
+          await exportProfileData(workbook, userId.toString());
+          break;
+        case 'events':
+          await exportEventsData(workbook, userId.toString());
+          break;
+        case 'investments':
+          await exportInvestmentsData(workbook, userId.toString());
+          break;
+        default:
+          return res.status(400).json(
+            new ApiResponse(400, {}, "Invalid export type specified")
+          );
+      }
+
+      // Set response headers for Excel file download
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename=${exportType}_export_${new Date().toISOString().split('T')[0]}.xlsx`
+      );
+
+      // Write the workbook to the response
+      await workbook.xlsx.write(res);
+      res.end();
+
+    } catch (error) {
+      console.error("Error exporting data:", error);
+      return res.status(500).json(
+        new ApiResponse(500, {}, "Failed to export data")
+      );
+    }
+  }
+);
+
+// Helper function to export profile data
+async function exportProfileData(workbook: ExcelJS.Workbook, userId: string) {
+  const worksheet = workbook.addWorksheet('Profile Data');
+
+  // Get user data
+  const [user, profile] = await Promise.all([
+    prismaClient.user.findUnique({
+      where: { id: parseInt(userId) },
+      select: {
+        name: true,
+        email: true,
+        phoneNumber: true,
+        gender: true,
+        memberId: true,
+        createdAt: true,
+      },
+    }),
+    prismaClient.profile.findUnique({
+      where: { userId: parseInt(userId) },
+    }),
+  ]);
+
+  // Set up columns
+  worksheet.columns = [
+    { header: 'Field', key: 'field', width: 25 },
+    { header: 'Value', key: 'value', width: 30 },
+  ];
+
+  // Add profile data rows
+  if (user) {
+    worksheet.addRow({ field: 'Name', value: user.name });
+    worksheet.addRow({ field: 'Email', value: user.email });
+    worksheet.addRow({ field: 'Phone Number', value: user.phoneNumber });
+    worksheet.addRow({ field: 'Gender', value: user.gender });
+    worksheet.addRow({ field: 'Member ID', value: user.memberId });
+    worksheet.addRow({ field: 'Account Created', value: user.createdAt?.toLocaleDateString() });
+  }
+
+  if (profile) {
+    worksheet.addRow({ field: 'Occupation', value: profile.occupation });
+    worksheet.addRow({ field: 'Employer', value: profile.employer });
+    worksheet.addRow({ field: 'Place', value: profile.place });
+    worksheet.addRow({ field: 'Date of Birth', value: profile.dateOfBirth?.toLocaleDateString() });
+    worksheet.addRow({ field: 'Blood Group', value: profile.bloodGroup });
+    worksheet.addRow({ field: 'Address', value: profile.address });
+  }
+
+  // Style the header row
+  worksheet.getRow(1).eachCell((cell) => {
+    cell.font = { bold: true };
+  });
+}
+
+// Helper function to export events data
+async function exportEventsData(workbook: ExcelJS.Workbook, userId: string) {
+  const worksheet = workbook.addWorksheet('Events Data');
+
+  // Get events data
+  const events = await prismaClient.eventRegistration.findMany({
+    where: { userId: parseInt(userId) },
+    include: {
+      event: {
+        select: {
+          title: true,
+          eventDate: true,
+          place: true,
+          timing: true,
+          eventType: true,
+        },
+      },
+    },
+    orderBy: {
+      event: {
+        eventDate: 'desc',
+      },
+    },
+  });
+
+  // Set up columns
+  worksheet.columns = [
+    { header: 'Event Title', key: 'title', width: 30 },
+    { header: 'Date', key: 'date', width: 15 },
+    { header: 'Place', key: 'place', width: 20 },
+    { header: 'Time', key: 'time', width: 15 },
+    { header: 'Type', key: 'type', width: 20 },
+    { header: 'Attended', key: 'attended', width: 15 },
+    { header: 'Registered On', key: 'registered', width: 20 },
+  ];
+
+  // Add event data rows
+  events.forEach((registration) => {
+    worksheet.addRow({
+      title: registration.event.title,
+      date: registration.event.eventDate?.toLocaleDateString(),
+      place: registration.event.place,
+      time: registration.event.timing,
+      type: registration.event.eventType,
+      attended: registration.isAttended ? 'Yes' : 'No',
+      registered: registration.createdAt.toLocaleDateString(),
+    });
+  });
+
+  // Style the header row
+  worksheet.getRow(1).eachCell((cell) => {
+    cell.font = { bold: true };
+  });
+}
+
+// Helper function to export investments data
+async function exportInvestmentsData(workbook: ExcelJS.Workbook, userId: string) {
+  // Add worksheet for gold program
+  const goldWorksheet = workbook.addWorksheet('Gold Program');
+  
+  // Get gold program data
+  const goldLots = await prismaClient.goldLot.findMany({
+    where: { userId: parseInt(userId) },
+    include: {
+      program: true,
+      payments: {
+        orderBy: [{ year: 'desc' }, { month: 'desc' }],
+      },
+    },
+  });
+
+  // Set up columns for gold program
+  goldWorksheet.columns = [
+    { header: 'Program Name', key: 'program', width: 25 },
+    { header: 'Lot Number', key: 'lot', width: 15 },
+    { header: 'Total Payments', key: 'payments', width: 15 },
+    { header: 'Last Payment', key: 'lastPayment', width: 20 },
+  ];
+
+  // Add gold program data rows
+  goldLots.forEach((lot) => {
+    goldWorksheet.addRow({
+      program: lot.program.name,
+      lot: lot.id,
+      payments: lot.payments.length,
+      lastPayment: lot.payments[0] 
+        ? `${lot.payments[0].month}/${lot.payments[0].year}`
+        : 'None',
+    });
+  });
+
+  // Style the header row
+  goldWorksheet.getRow(1).eachCell((cell) => {
+    cell.font = { bold: true };
+  });
+
+  // Add worksheet for long-term investments
+  const investmentWorksheet = workbook.addWorksheet('Investments');
+  
+  // Get investment data
+  const investments = await prismaClient.longTermInvestment.findMany({
+    where: { userId: parseInt(userId) },
+    include: {
+      deposits: {
+        orderBy: { depositDate: 'desc' },
+      },
+    },
+  });
+
+  // Set up columns for investments
+  investmentWorksheet.columns = [
+    { header: 'Investment ID', key: 'id', width: 15 },
+    { header: 'Total Deposited', key: 'deposited', width: 20 },
+    { header: 'Total Profit', key: 'profit', width: 20 },
+    { header: 'Last Deposit', key: 'lastDeposit', width: 20 },
+    { header: 'Status', key: 'status', width: 15 },
+  ];
+
+  // Add investment data rows
+  investments.forEach((investment) => {
+    investmentWorksheet.addRow({
+      id: investment.id,
+      deposited: investment.totalDeposited,
+      profit: investment.totalProfit,
+      lastDeposit: investment.deposits[0]?.depositDate.toLocaleDateString() || 'None',
+      status: investment.isActive ? 'Active' : 'Inactive',
+    });
+  });
+
+  // Style the header row
+  investmentWorksheet.getRow(1).eachCell((cell) => {
+    cell.font = { bold: true };
+  });
+}
