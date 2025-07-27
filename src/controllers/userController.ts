@@ -1080,7 +1080,7 @@ export const getPravasiWelfareMembership = asyncHandler(
             userId,
             question: {
               text: {
-                equals: "Are you a member of Pravasi Welfare?",
+                equals: "Pravasi Welfare അംഗമാണോ ?",
               },
             },
           },
@@ -1117,30 +1117,45 @@ export const exportAllUsers = asyncHandler(
       const users = await prismaClient.user.findMany({
         include: {
           profile: true,
-          registrations: {
+          contactInfo: true,
+          EventRegistration: {
             include: {
               event: true
             }
           },
-          goldLots: {
+          GoldLot: {
             include: {
               program: true,
-              payments: true
+              payments: true,
+              winners: true
             }
           },
-          investments: true
+          LongTermInvestment: {
+            include: {
+              deposits: true,
+              profitPayouts: true
+            }
+          },
+          Travel: {
+            include: {
+              fromAirport: true,
+              toAirport: true
+            }
+          },
+          UserSurveyAnswer: true,
+          Notification: true
         },
         orderBy: {
           createdAt: 'desc'
         }
       });
 
-      // Create workbook and worksheet
+      // Create workbook and worksheets
       const workbook = new ExcelJS.Workbook();
-      workbook.creator = 'KMCC Admin';
+      workbook.creator = 'KMCC Admin System';
       workbook.created = new Date();
 
-      // Add Users worksheet
+      // 1. Users Worksheet
       const usersWorksheet = workbook.addWorksheet('Users');
       usersWorksheet.columns = [
         { header: 'ID', key: 'id', width: 10 },
@@ -1149,10 +1164,13 @@ export const exportAllUsers = asyncHandler(
         { header: 'Phone', key: 'phoneNumber', width: 20 },
         { header: 'Member ID', key: 'memberId', width: 15 },
         { header: 'Iqama Number', key: 'iqamaNumber', width: 20 },
+        { header: 'Area', key: 'areaName', width: 20 },
+        { header: 'Admin', key: 'isAdmin', width: 10 },
+        { header: 'Survey Completed', key: 'isSurveyCompleted', width: 15 },
         { header: 'Created At', key: 'createdAt', width: 20 }
       ];
 
-      // Add Profile worksheet
+      // 2. Profiles Worksheet
       const profileWorksheet = workbook.addWorksheet('Profiles');
       profileWorksheet.columns = [
         { header: 'User ID', key: 'userId', width: 10 },
@@ -1161,17 +1179,44 @@ export const exportAllUsers = asyncHandler(
         { header: 'Place', key: 'place', width: 20 },
         { header: 'Date of Birth', key: 'dateOfBirth', width: 15 },
         { header: 'Blood Group', key: 'bloodGroup', width: 15 },
+        { header: 'KMCC Position', key: 'kmccPosition', width: 20 },
         { header: 'Address', key: 'address', width: 40 }
       ];
 
-      // Add Events worksheet
+      // 3. Events Worksheet
       const eventsWorksheet = workbook.addWorksheet('Event Registrations');
       eventsWorksheet.columns = [
         { header: 'User ID', key: 'userId', width: 10 },
         { header: 'Event', key: 'eventTitle', width: 30 },
         { header: 'Date', key: 'eventDate', width: 15 },
+        { header: 'Location', key: 'eventPlace', width: 20 },
         { header: 'Attended', key: 'attended', width: 15 },
         { header: 'Registered At', key: 'registeredAt', width: 20 }
+      ];
+
+      // 4. Gold Program Worksheet
+      const goldWorksheet = workbook.addWorksheet('Gold Program');
+      goldWorksheet.columns = [
+        { header: 'User ID', key: 'userId', width: 10 },
+        { header: 'Program', key: 'programName', width: 25 },
+        { header: 'Lot ID', key: 'lotId', width: 10 },
+        { header: 'Payments', key: 'paymentCount', width: 15 },
+        { header: 'Last Payment', key: 'lastPayment', width: 20 },
+        { header: 'Wins', key: 'winCount', width: 10 },
+        { header: 'Last Win', key: 'lastWin', width: 20 }
+      ];
+
+      // 5. Investments Worksheet
+      const investmentsWorksheet = workbook.addWorksheet('Investments');
+      investmentsWorksheet.columns = [
+        { header: 'User ID', key: 'userId', width: 10 },
+        { header: 'Investment ID', key: 'investmentId', width: 15 },
+        { header: 'Status', key: 'status', width: 15 },
+        { header: 'Total Deposited', key: 'totalDeposited', width: 20 },
+        { header: 'Total Profit', key: 'totalProfit', width: 20 },
+        { header: 'Deposits', key: 'depositCount', width: 15 },
+        { header: 'Last Deposit', key: 'lastDeposit', width: 20 },
+        { header: 'Payouts', key: 'payoutCount', width: 15 }
       ];
 
       // Add data to worksheets
@@ -1184,45 +1229,99 @@ export const exportAllUsers = asyncHandler(
           phoneNumber: user.phoneNumber,
           memberId: user.memberId,
           iqamaNumber: user.iqamaNumber,
+          areaName: user.areaName,
+          isAdmin: user.isAdmin ? 'Yes' : 'No',
+          isSurveyCompleted: user.isSurveyCompleted ? 'Yes' : 'No',
           createdAt: user.createdAt
         });
 
-        // Add to Profiles sheet if profile exists
+        // Add to Profiles sheet
         if (user.profile) {
           profileWorksheet.addRow({
             userId: user.id,
             occupation: user.profile.occupation,
             employer: user.profile.employer,
             place: user.profile.place,
-            dateOfBirth: user.profile.dateOfBirth,
+            dateOfBirth: user.profile.dateOfBirth?.toISOString().split('T')[0],
             bloodGroup: user.profile.bloodGroup,
+            kmccPosition: user.profile.kmccPosition,
             address: user.profile.address
           });
         }
 
         // Add to Events sheet
-        user.registrations.forEach(registration => {
+        user.EventRegistration.forEach(registration => {
           eventsWorksheet.addRow({
             userId: user.id,
             eventTitle: registration.event.title,
-            eventDate: registration.event.eventDate,
+            eventDate: registration.event.eventDate?.toISOString().split('T')[0],
+            eventPlace: registration.event.place,
             attended: registration.isAttended ? 'Yes' : 'No',
             registeredAt: registration.createdAt
           });
         });
+
+        // Add to Gold Program sheet
+        user.GoldLot.forEach(lot => {
+          const lastPayment = lot.payments[0] 
+            ? `${lot.payments[0].month}/${lot.payments[0].year}`
+            : 'None';
+            
+          const lastWin = lot.winners[0]
+            ? `${lot.winners[0].month}/${lot.winners[0].year} (${lot.winners[0].prizeAmount})`
+            : 'None';
+
+          goldWorksheet.addRow({
+            userId: user.id,
+            programName: lot.program.name,
+            lotId: lot.id,
+            paymentCount: lot.payments.length,
+            lastPayment: lastPayment,
+            winCount: lot.winners.length,
+            lastWin: lastWin
+          });
+        });
+
+        // Add to Investments sheet
+        user.LongTermInvestment.forEach(investment => {
+          investmentsWorksheet.addRow({
+            userId: user.id,
+            investmentId: investment.id,
+            status: investment.isActive ? 'Active' : 'Inactive',
+            totalDeposited: investment.totalDeposited,
+            totalProfit: investment.totalProfit,
+            depositCount: investment.deposits.length,
+            lastDeposit: investment.deposits[0]?.depositDate.toISOString().split('T')[0] || 'None',
+            payoutCount: investment.profitPayouts.length
+          });
+        });
       });
 
-      // Style header rows
-      [usersWorksheet, profileWorksheet, eventsWorksheet].forEach(sheet => {
-        sheet.getRow(1).eachCell(cell => {
-          cell.font = { bold: true };
+      // Style all worksheets
+      const styleHeader = (worksheet: ExcelJS.Worksheet) => {
+        worksheet.getRow(1).eachCell(cell => {
+          cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
           cell.fill = {
             type: 'pattern',
             pattern: 'solid',
-            fgColor: { argb: 'FFD3D3D3' }
+            fgColor: { argb: 'FF2E86C1' }
+          };
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        });
+        
+        // Freeze header row
+        worksheet.views = [{ state: 'frozen', ySplit: 1 }];
+      };
+
+      [usersWorksheet, profileWorksheet, eventsWorksheet, goldWorksheet, investmentsWorksheet]
+        .forEach(worksheet => {
+          styleHeader(worksheet);
+          // Auto filter
+          worksheet.autoFilter = {
+            from: { row: 1, column: 1 },
+            to: { row: 1, column: worksheet.columnCount }
           };
         });
-      });
 
       // Set response headers
       res.setHeader(
@@ -1231,7 +1330,7 @@ export const exportAllUsers = asyncHandler(
       );
       res.setHeader(
         'Content-Disposition',
-        `attachment; filename=users_export_${new Date().toISOString().split('T')[0]}.xlsx`
+        `attachment; filename=kmcc_users_export_${new Date().toISOString().split('T')[0]}.xlsx`
       );
 
       // Write workbook to response

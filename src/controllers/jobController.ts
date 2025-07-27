@@ -3,6 +3,8 @@ import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError, ApiResponse } from "../utils/apiHandlerHelpers";
 import { Request, Response } from "express";
 import sharp from "sharp";
+import { AuthRequest } from "../middlewares/authMiddleware";
+import { sendGlobalNotification } from "../utils/notify";
 
 // ✅ Create a new job (Admin Only)
 export const createJob = asyncHandler(async (req: Request, res: Response) => {
@@ -64,12 +66,82 @@ export const createJob = asyncHandler(async (req: Request, res: Response) => {
       benefits: parsedBenefits,
     },
   });
-
+ await sendGlobalNotification({
+      title: "New Job Added",
+      body: "Check out the latest update!",
+      data: { type: "news", jobId: job.id.toString() },
+    });
   console.log("Job Created Successfully");
 
   res.status(201).json(new ApiResponse(201, job, "Job created successfully."));
 });
 // ✅ Apply for a job (User)
+export const applyJobNew = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { jobId, fullName, email, phone } = req.body;
+
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required");
+  }
+
+  if (!jobId || !fullName || !email || !phone || !req.file) {
+    throw new ApiError(400, "All fields are required, including the resume.");
+  }
+
+  // ✅ Convert jobId to a number
+  const parsedJobId = Number(jobId);
+  if (isNaN(parsedJobId)) throw new ApiError(400, "Invalid job ID.");
+
+  // Check if user has already applied
+  const existingApplication = await prismaClient.jobApplication.findFirst({
+    where: {
+      jobId: parsedJobId,
+      email: req.user.email || undefined,
+    },
+  });
+
+  if (existingApplication) {
+    throw new ApiError(400, "You have already applied for this job.");
+  }
+
+  const job = await prismaClient.job.findUnique({ where: { id: parsedJobId } });
+  if (!job || job.isClosed) throw new ApiError(404, "Job not found or closed.");
+
+  let compressedResume;
+  try {
+    compressedResume = await sharp(req.file.buffer)
+      .resize(600)
+      .jpeg({ quality: 80 })
+      .toBuffer();
+  } catch (error) {
+    console.error("Image Processing Error:", error);
+    throw new ApiError(500, "Error processing resume image.");
+  }
+
+  try {
+    const application = await prismaClient.jobApplication.create({
+      data: {
+        jobId: parsedJobId,
+        fullName,
+        email,
+        phone,
+        resume: compressedResume,
+      },
+    });
+
+    res
+      .status(201)
+      .json(
+        new ApiResponse(
+          201,
+          application,
+          "Job application submitted successfully."
+        )
+      );
+  } catch (error) {
+    console.error("Database Error:", error);
+    throw new ApiError(500, "Failed to save job application.");
+  }
+})
 export const applyJob = asyncHandler(async (req: Request, res: Response) => {
   const { jobId, fullName, email, phone } = req.body;
 
@@ -124,7 +196,6 @@ export const applyJob = asyncHandler(async (req: Request, res: Response) => {
     throw new ApiError(500, "Failed to save job application.");
   }
 });
-
 // ✅ Get all active jobs (with search & pagination)
 export const getActiveJobs = asyncHandler(
   async (req: Request, res: Response) => {
@@ -194,7 +265,7 @@ export const getActiveJobs = asyncHandler(
 
 // ✅ Get a single job by id
 
-export const getJobById = asyncHandler(async (req: Request, res: Response) => {
+export const getJobById = asyncHandler(async (req: AuthRequest, res: Response) => {
   const jobId = Number(req.params.jobId);
   if (!jobId) throw new ApiError(400, "Job ID is required.");
 
@@ -210,6 +281,18 @@ export const getJobById = asyncHandler(async (req: Request, res: Response) => {
     where: { jobId },
   });
 
+  // Check if current user has applied (if authenticated)
+  let hasApplied = false;
+  if (req.user) {
+    const userApplication = await prismaClient.jobApplication.findFirst({
+      where: {
+        jobId,
+        email: req.user.email || undefined, // Using email as identifier
+      },
+    });
+    hasApplied = !!userApplication;
+  }
+
   // ✅ Convert binary logo to Base64
   const formattedJob = {
     ...job,
@@ -217,13 +300,55 @@ export const getJobById = asyncHandler(async (req: Request, res: Response) => {
       ? `data:image/jpeg;base64,${Buffer.from(job.logo).toString("base64")}`
       : null,
     applicationCount, // Total applications for this job
+    hasApplied, // Boolean indicating if current user has applied
   };
 
   res.json(
     new ApiResponse(200, formattedJob, "Job details retrieved successfully.")
   );
 });
+export const getJobByIdNew= asyncHandler(async (req: AuthRequest, res: Response) => {
+  const jobId = Number(req.params.jobId);
+  if (!jobId) throw new ApiError(400, "Job ID is required.");
 
+  // ✅ Fetch job details
+  const job = await prismaClient.job.findUnique({
+    where: { id: jobId },
+  });
+
+  if (!job) throw new ApiError(404, "Job not found.");
+
+  // ✅ Count job applications
+  const applicationCount = await prismaClient.jobApplication.count({
+    where: { jobId },
+  });
+
+  // Check if current user has applied (if authenticated)
+  let hasApplied = false;
+  if (req.user) {
+    const userApplication = await prismaClient.jobApplication.findFirst({
+      where: {
+        jobId,
+        email: req.user.email || undefined, // Using email as identifier
+      },
+    });
+    hasApplied = !!userApplication;
+  }
+
+  // ✅ Convert binary logo to Base64
+  const formattedJob = {
+    ...job,
+    logo: job.logo
+      ? `data:image/jpeg;base64,${Buffer.from(job.logo).toString("base64")}`
+      : null,
+    applicationCount, // Total applications for this job
+    hasApplied, // Boolean indicating if current user has applied
+  };
+
+  res.json(
+    new ApiResponse(200, formattedJob, "Job details retrieved successfully.")
+  );
+});
 // ✅ Admin - Get all jobs (with search & pagination)
 export const getAllJobsAdmin = asyncHandler(
   async (req: Request, res: Response) => {

@@ -113,7 +113,7 @@ export const getCommitteeMembers = asyncHandler(
 
     const members = await prismaClient.constitutionCommitteeMember.findMany({
       where: { committeeId },
-      orderBy: { position: "asc" },
+      orderBy: { id: "desc" },
     });
 
     const formattedMembers = members.map((member) => ({

@@ -214,7 +214,10 @@ export const getSubWingMembers = asyncHandler(
 
     const members = await prismaClient.subWingMember.findMany({
       where: { subWingId },
-      orderBy: { position: "asc" },
+      orderBy: [
+        { id: 'asc' },    // Newer members have higher IDs
+        { position: 'asc' } // Then by position
+      ],
     });
 
     const formattedMembers = members.map((member) => ({
@@ -227,18 +230,11 @@ export const getSubWingMembers = asyncHandler(
         : null,
     }));
 
-    res
-      .status(200)
-      .json(
-        new ApiResponse(
-          200,
-          formattedMembers,
-          "Members retrieved successfully."
-        )
-      );
+    res.status(200).json(
+      new ApiResponse(200, formattedMembers, "Members retrieved successfully.")
+    );
   }
 );
-
 export const getSubWingDetails = asyncHandler(
   async (req: Request, res: Response) => {
     const subWingId = Number(req.params.subWingId);

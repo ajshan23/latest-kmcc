@@ -10,7 +10,7 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url      = "mysql://kmcc_admin:NewStrongPassword123%21@localhost:3306/kmcc"
+  url      = "mysql://root:annu@localhost:3306/kmcc"
 }
 
 model User {

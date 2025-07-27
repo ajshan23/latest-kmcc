@@ -304,21 +304,17 @@ export const addWinners = asyncHandler(async (req: Request, res: Response) => {
     throw new ApiError(400, "Some lots don't belong to this program");
   }
 
-  // Check for existing winners for the same month/year combinations
-  const existingWinners = await prisma.goldWinner.findMany({
-    where: {
-      programId,
-      OR: winners.map((w: any) => ({
-        AND: [{ month: parseInt(w.month) }, { year: parseInt(w.year) }],
-      })),
-    },
-  });
-
-  if (existingWinners.length > 0) {
-    const conflicts = existingWinners
-      .map((w) => `Month ${w.month}, Year ${w.year}`)
-      .join(", ");
-    throw new ApiError(400, `Winners already exist for: ${conflicts}`);
+  // Check for duplicate lot/month/year combinations in the request
+  const uniqueCombinations = new Set();
+  for (const winner of winners) {
+    const key = `${winner.lotId}-${winner.month}-${winner.year}`;
+    if (uniqueCombinations.has(key)) {
+      throw new ApiError(
+        400,
+        `Duplicate lot/month/year combination: Lot ${winner.lotId}, Month ${winner.month}, Year ${winner.year}`
+      );
+    }
+    uniqueCombinations.add(key);
   }
 
   // Check if any lots have already won (in any year)
